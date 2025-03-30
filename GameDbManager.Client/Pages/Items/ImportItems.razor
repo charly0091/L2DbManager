@@ -1,0 +1,33 @@
+﻿@page "/items/import"
+@using GameDbManager.Client.Services.Items
+@inject ItemService ItemService
+@inject NavigationManager Navigation
+
+<PageTitle>Import Items</PageTitle>
+
+<h3>Import Items</h3>
+
+<InputFile OnChange="HandleFileSelected" />
+<button @onclick="ImportItemsFromXml" class="btn btn-primary">Import</button>
+
+@code {
+    private IBrowserFile selectedFile;
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+    }
+
+    private async Task ImportItemsFromXml()
+    {
+        if (selectedFile != null)
+        {
+            var buffer = new byte[selectedFile.Size];
+            await selectedFile.OpenReadStream().ReadAsync(buffer);
+            var xmlContent = System.Text.Encoding.UTF8.GetString(buffer);
+
+            ItemService.ImportItemsFromXml(xmlContent);
+            Navigation.NavigateTo("/items");
+        }
+    }
+}

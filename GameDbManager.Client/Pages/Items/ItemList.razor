@@ -1,0 +1,69 @@
+﻿@page "/items"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@using GameDbManager.API.Models.Items
+@using GameDbManager.Client.Services.Items
+
+<PageTitle>Items</PageTitle>
+
+<h3>Items</h3>
+
+<a href="/items/create" class="btn btn-primary">Create New Item</a>
+<a href="/items/import" class="btn btn-secondary">Import Items</a> <!-- Enlace a la página de importación -->
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in items)
+        {
+            <tr>
+                <td>@item.Name</td>
+                <td>
+                    <a href="/items/edit/@item.Id">Edit</a> |
+                    <button @onclick="() => ConfirmDelete(item.Id)">Delete</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<Dialog @ref="deleteDialog">
+    <h3>Confirm Delete</h3>
+    <p>Are you sure you want to delete this item?</p>
+    <button @onclick="DeleteConfirmed" class="btn btn-danger">Delete</button>
+    <button @onclick="CancelDelete" class="btn btn-secondary">Cancel</button>
+</Dialog>
+
+@code {
+    private List<Item> items;
+    private int itemIdToDelete;
+    private Dialog deleteDialog;
+
+    protected override async Task OnInitializedAsync()
+    {
+        items = await Http.GetFromJsonAsync<List<Item>>("api/item");
+    }
+
+    private void ConfirmDelete(int id)
+    {
+        itemIdToDelete = id;
+        deleteDialog.Show();
+    }
+
+    private async Task DeleteConfirmed()
+    {
+        await Http.DeleteAsync($"api/item/{itemIdToDelete}");
+        items = await Http.GetFromJsonAsync<List<Item>>("api/item");
+        deleteDialog.Hide();
+    }
+
+    private void CancelDelete()
+    {
+        deleteDialog.Hide();
+    }
+}

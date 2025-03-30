@@ -1,0 +1,97 @@
+﻿@page "/items/edit/{id:int?}"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@using GameDbManager.API.Models.Items
+
+<PageTitle>@(IsEditing ? "Edit Item" : "Create Item")</PageTitle>
+
+<h3>@(IsEditing ? "Edit Item" : "Create Item")</h3>
+
+<EditForm Model="@item" OnValidSubmit="@HandleValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="type">Item Type</label>
+        <InputSelect id="type" class="form-control" @bind-Value="SelectedItemType" @onchange="HandleItemTypeChange" disabled="@IsEditing">
+            <option value="Armor">Armor</option>
+            <option value="Weapon">Weapon</option>
+            <!-- Add other item types as needed -->
+        </InputSelect>
+    </div>
+
+    <div class="form-group">
+        <label for="name">Name</label>
+        <InputText id="name" class="form-control" @bind-Value="item.Name" />
+    </div>
+    <div class="form-group">
+        <label for="icon">Icon</label>
+        <InputText id="icon" class="form-control" @bind-Value="item.Icon" />
+    </div>
+    <div class="form-group">
+        <label for="weight">Weight</label>
+        <InputNumber id="weight" class="form-control" @bind-Value="item.Weight" />
+    </div>
+    <div class="form-group">
+        <label for="price">Price</label>
+        <InputNumber id="price" class="form-control" @bind-Value="item.Price" />
+    </div>
+    <!-- Add other fields as necessary based on the selected item type -->
+
+    <button type="submit" class="btn btn-primary">@(IsEditing ? "Save" : "Create")</button>
+</EditForm>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    private Item item;
+    private bool IsEditing => Id.HasValue;
+    private string SelectedItemType { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IsEditing)
+        {
+            item = await Http.GetFromJsonAsync<Item>($"api/item/{Id.Value}");
+            SelectedItemType = item.GetType().Name;
+        }
+        else
+        {
+            SelectedItemType = "Armor"; // Default type, you can change it
+            InstantiateNewItem(SelectedItemType);
+        }
+    }
+
+    private void HandleItemTypeChange(ChangeEventArgs e)
+    {
+        SelectedItemType = e.Value.ToString();
+        InstantiateNewItem(SelectedItemType);
+    }
+
+    private void InstantiateNewItem(string itemType)
+    {
+        switch (itemType)
+        {
+            case "Armor":
+                item = new Armor();
+                break;
+            case "Weapon":
+                item = new Weapon();
+                break;
+                // Handle other item types as needed
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (IsEditing)
+        {
+            await Http.PutAsJsonAsync($"api/item/{Id.Value}", item);
+        }
+        else
+        {
+            await Http.PostAsJsonAsync("api/item", item);
+        }
+
+        Navigation.NavigateTo("/items");
+    }
+}
