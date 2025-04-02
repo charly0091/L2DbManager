@@ -16,7 +16,9 @@
         <InputSelect id="type" class="form-control" @bind-Value="SelectedItemType" @onchange="HandleItemTypeChange" disabled="@IsEditing">
             <option value="Armor">Armor</option>
             <option value="Weapon">Weapon</option>
-            <!-- Add other item types as needed -->
+            <option value="Accessory">Accessory</option>
+            <option value="Jewelry">Jewelry</option>
+            <option value="Etc">Etc</option>
         </InputSelect>
     </div>
 
@@ -36,7 +38,105 @@
         <label for="price">Price</label>
         <InputNumber id="price" class="form-control" @bind-Value="item.Price" />
     </div>
-    <!-- Add other fields as necessary based on the selected item type -->
+    <div class="form-group">
+        <label for="sellable">Sellable</label>
+        <InputCheckbox id="sellable" class="form-control" @bind-Value="item.Sellable" />
+    </div>
+    <div class="form-group">
+        <label for="tradeable">Tradeable</label>
+        <InputCheckbox id="tradeable" class="form-control" @bind-Value="item.Tradeable" />
+    </div>
+    <div class="form-group">
+        <label for="dropable">Dropable</label>
+        <InputCheckbox id="dropable" class="form-control" @bind-Value="item.Dropable" />
+    </div>
+    <div class="form-group">
+        <label for="destroyable">Destroyable</label>
+        <InputCheckbox id="destroyable" class="form-control" @bind-Value="item.Destroyable" />
+    </div>
+
+    @if (item is Armor armor)
+    {
+        <div class="form-group">
+            <label for="armorType">Armor Type</label>
+            <InputText id="armorType" class="form-control" @bind-Value="armor.ArmorType" />
+        </div>
+        <div class="form-group">
+            <label for="bodyPart">Body Part</label>
+            <InputText id="bodyPart" class="form-control" @bind-Value="armor.BodyPart" />
+        </div>
+        <div class="form-group">
+            <label for="grade">Grade</label>
+            <InputText id="grade" class="form-control" @bind-Value="armor.Grade" />
+        </div>
+        <div class="form-group">
+            <label for="crystallizable">Crystallizable</label>
+            <InputCheckbox id="crystallizable" class="form-control" @bind-Value="armor.Crystallizable" />
+        </div>
+        <!-- Add fields for stats if needed -->
+    }
+    else if (item is Weapon weapon)
+    {
+        <div class="form-group">
+            <label for="weaponType">Weapon Type</label>
+            <InputText id="weaponType" class="form-control" @bind-Value="weapon.WeaponType" />
+        </div>
+        <div class="form-group">
+            <label for="bodyPart">Body Part</label>
+            <InputText id="bodyPart" class="form-control" @bind-Value="weapon.BodyPart" />
+        </div>
+        <div class="form-group">
+            <label for="grade">Grade</label>
+            <InputText id="grade" class="form-control" @bind-Value="weapon.Grade" />
+        </div>
+        <div class="form-group">
+            <label for="crystallizable">Crystallizable</label>
+            <InputCheckbox id="crystallizable" class="form-control" @bind-Value="weapon.Crystallizable" />
+        </div>
+        <!-- Add fields for stats if needed -->
+    }
+    else if (item is Accessory accessory)
+    {
+        <div class="form-group">
+            <label for="bodyPart">Body Part</label>
+            <InputText id="bodyPart" class="form-control" @bind-Value="accessory.BodyPart" />
+        </div>
+        <div class="form-group">
+            <label for="grade">Grade</label>
+            <InputText id="grade" class="form-control" @bind-Value="accessory.Grade" />
+        </div>
+        <div class="form-group">
+            <label for="crystallizable">Crystallizable</label>
+            <InputCheckbox id="crystallizable" class="form-control" @bind-Value="accessory.Crystallizable" />
+        </div>
+    }
+    else if (item is Jewelry jewelry)
+    {
+        <div class="form-group">
+            <label for="bodyPart">Body Part</label>
+            <InputText id="bodyPart" class="form-control" @bind-Value="jewelry.BodyPart" />
+        </div>
+        <div class="form-group">
+            <label for="grade">Grade</label>
+            <InputText id="grade" class="form-control" @bind-Value="jewelry.Grade" />
+        </div>
+        <div class="form-group">
+            <label for="crystallizable">Crystallizable</label>
+            <InputCheckbox id="crystallizable" class="form-control" @bind-Value="jewelry.Crystallizable" />
+        </div>
+        <!-- Add fields for stats if needed -->
+    }
+    else if (item is Etc etc)
+    {
+        <div class="form-group">
+            <label for="itemType">Item Type</label>
+            <InputText id="itemType" class="form-control" @bind-Value="etc.ItemType" />
+        </div>
+        <div class="form-group">
+            <label for="stackable">Stackable</label>
+            <InputCheckbox id="stackable" class="form-control" @bind-Value="etc.Stackable" />
+        </div>
+    }
 
     <button type="submit" class="btn btn-primary">@(IsEditing ? "Save" : "Create")</button>
 </EditForm>
@@ -77,7 +177,15 @@
             case "Weapon":
                 item = new Weapon();
                 break;
-                // Handle other item types as needed
+            case "Accessory":
+                item = new Accessory();
+                break;
+            case "Jewelry":
+                item = new Jewelry();
+                break;
+            case "Etc":
+                item = new Etc();
+                break;
         }
     }
 

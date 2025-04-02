@@ -1,6 +1,7 @@
 ﻿using GameDbManager.API.Models.Items;
 using GameDbManager.API.Services.Items;
 using Microsoft.AspNetCore.Mvc;
+using System.Collections.Generic;
 
 namespace GameDbManager.API.Controllers.Items
 {
@@ -63,6 +64,13 @@ namespace GameDbManager.API.Controllers.Items
 
             _itemService.DeleteItem(id);
             return NoContent();
+        }
+
+        [HttpPost("import")]
+        public IActionResult ImportItems([FromBody] string xmlContent)
+        {
+            var message = _itemService.ImportItemsFromXml(xmlContent);
+            return Ok(message);
         }
     }
 }

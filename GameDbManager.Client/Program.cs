@@ -2,14 +2,18 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using GameDbManager.Client.Data;
 using GameDbManager.Client.Services.Items;
+using System;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
-builder.Services.AddHttpClient();
-builder.Services.AddScoped<ItemService>();
+builder.Services.AddHttpClient<ItemService>(client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["ApiBaseAddress"]);
+});
+
 
 var app = builder.Build();
 

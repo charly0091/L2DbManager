@@ -14,21 +14,20 @@ namespace GameDbManager.API.Data
         public DbSet<Etc> Etcs { get; set; }
         public DbSet<Jewelry> Jewelries { get; set; }
         public DbSet<Weapon> Weapons { get; set; }
-        public DbSet<Stat> Stats { get; set; }  // Añadido DbSet para Stat
+        public DbSet<Stat> Stats { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
             modelBuilder.Entity<Item>()
-                .HasDiscriminator<string>("ItemType")
+                .HasDiscriminator<string>("Discriminator")
                 .HasValue<Accessory>("Accessory")
                 .HasValue<Armor>("Armor")
                 .HasValue<Etc>("Etc")
                 .HasValue<Jewelry>("Jewelry")
                 .HasValue<Weapon>("Weapon");
 
-            // Definición para Stat
             modelBuilder.Entity<Stat>().ToTable("Stats");
         }
     }

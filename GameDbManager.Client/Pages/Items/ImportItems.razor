@@ -10,8 +10,16 @@
 <InputFile OnChange="HandleFileSelected" />
 <button @onclick="ImportItemsFromXml" class="btn btn-primary">Import</button>
 
+@if (!string.IsNullOrEmpty(ImportMessage))
+{
+    <div class="alert alert-info">
+        @ImportMessage
+    </div>
+}
+
 @code {
     private IBrowserFile selectedFile;
+    private string ImportMessage;
 
     private void HandleFileSelected(InputFileChangeEventArgs e)
     {
@@ -26,8 +34,7 @@
             await selectedFile.OpenReadStream().ReadAsync(buffer);
             var xmlContent = System.Text.Encoding.UTF8.GetString(buffer);
 
-            ItemService.ImportItemsFromXml(xmlContent);
-            Navigation.NavigateTo("/items");
+            ImportMessage = await ItemService.ImportItemsFromXml(xmlContent);
         }
     }
 }
