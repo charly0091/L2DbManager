@@ -14,12 +14,14 @@ namespace GameDbManager.API.Data
         public DbSet<Etc> Etcs { get; set; }
         public DbSet<Jewelry> Jewelries { get; set; }
         public DbSet<Weapon> Weapons { get; set; }
-        public DbSet<Stat> Stats { get; set; }
+        public DbSet<ItemStat> ItemStats { get; set; }
+        public DbSet<ItemSkill> ItemSkills { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
+            // Configuración de TPH (Table Per Hierarchy)
             modelBuilder.Entity<Item>()
                 .HasDiscriminator<string>("Discriminator")
                 .HasValue<Accessory>("Accessory")
@@ -28,7 +30,18 @@ namespace GameDbManager.API.Data
                 .HasValue<Jewelry>("Jewelry")
                 .HasValue<Weapon>("Weapon");
 
-            modelBuilder.Entity<Stat>().ToTable("Stats");
+            // Configuración de relaciones
+            modelBuilder.Entity<ItemStat>()
+                .HasOne(s => s.Item)
+                .WithMany(i => i.Stats)
+                .HasForeignKey(s => s.ItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<ItemSkill>()
+                .HasOne(s => s.Item)
+                .WithMany(i => i.Skills)
+                .HasForeignKey(s => s.ItemId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

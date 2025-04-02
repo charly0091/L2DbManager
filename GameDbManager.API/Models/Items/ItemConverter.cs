@@ -14,21 +14,48 @@ public class ItemConverter : JsonConverter<Item>
             if (root.TryGetProperty("discriminator", out JsonElement discriminatorElement))
             {
                 string discriminator = discriminatorElement.GetString();
+
+                // Crear nuevas opciones sin el ItemConverter para evitar recursión
+                var newOptions = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                };
+
+                // Copiar todos los converters excepto ItemConverter
+                foreach (var converter in options.Converters)
+                {
+                    if (!(converter is ItemConverter))
+                    {
+                        newOptions.Converters.Add(converter);
+                    }
+                }
+
+                string json = root.GetRawText();
+                Item item = null;
+
                 switch (discriminator)
                 {
                     case "Accessory":
-                        return JsonSerializer.Deserialize<Accessory>(root.GetRawText(), options);
+                        item = JsonSerializer.Deserialize<Accessory>(json, newOptions);
+                        break;
                     case "Armor":
-                        return JsonSerializer.Deserialize<Armor>(root.GetRawText(), options);
+                        item = JsonSerializer.Deserialize<Armor>(json, newOptions);
+                        break;
                     case "Etc":
-                        return JsonSerializer.Deserialize<Etc>(root.GetRawText(), options);
+                        item = JsonSerializer.Deserialize<Etc>(json, newOptions);
+                        break;
                     case "Jewelry":
-                        return JsonSerializer.Deserialize<Jewelry>(root.GetRawText(), options);
+                        item = JsonSerializer.Deserialize<Jewelry>(json, newOptions);
+                        break;
                     case "Weapon":
-                        return JsonSerializer.Deserialize<Weapon>(root.GetRawText(), options);
+                        item = JsonSerializer.Deserialize<Weapon>(json, newOptions);
+                        break;
                     default:
                         throw new NotSupportedException($"Unsupported item type: {discriminator}");
                 }
+
+                return item;
             }
             else
             {

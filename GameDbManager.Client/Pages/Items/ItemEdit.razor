@@ -1,205 +1,554 @@
 ﻿@page "/items/edit/{id:int?}"
-@inject HttpClient Http
+@page "/items/create"
 @inject NavigationManager Navigation
-@using GameDbManager.API.Models.Items
+@inject ItemService ItemService
+@using GameDbManager.Client.Models.Items
+@using GameDbManager.Client.Services.Items
 
-<PageTitle>@(IsEditing ? "Edit Item" : "Create Item")</PageTitle>
+<PageTitle>@(IsEditing ? "Edit Item" : "Create Item") - Game DB Manager</PageTitle>
 
-<h3>@(IsEditing ? "Edit Item" : "Create Item")</h3>
-
-<EditForm Model="@item" OnValidSubmit="@HandleValidSubmit">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
-
-    <div class="form-group">
-        <label for="type">Item Type</label>
-        <InputSelect id="type" class="form-control" @bind-Value="SelectedItemType" @onchange="HandleItemTypeChange" disabled="@IsEditing">
-            <option value="Armor">Armor</option>
-            <option value="Weapon">Weapon</option>
-            <option value="Accessory">Accessory</option>
-            <option value="Jewelry">Jewelry</option>
-            <option value="Etc">Etc</option>
-        </InputSelect>
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            <i class="oi @(IsEditing ? "oi-pencil" : "oi-plus")"></i>
+            @(IsEditing ? $"Edit Item: {item?.Name}" : "Create New Item")
+        </h2>
+        <div>
+            <a href="/items" class="btn btn-outline-secondary">
+                <i class="oi oi-chevron-left"></i> Back to Items
+            </a>
+        </div>
     </div>
 
-    <div class="form-group">
-        <label for="name">Name</label>
-        <InputText id="name" class="form-control" @bind-Value="item.Name" />
-    </div>
-    <div class="form-group">
-        <label for="icon">Icon</label>
-        <InputText id="icon" class="form-control" @bind-Value="item.Icon" />
-    </div>
-    <div class="form-group">
-        <label for="weight">Weight</label>
-        <InputNumber id="weight" class="form-control" @bind-Value="item.Weight" />
-    </div>
-    <div class="form-group">
-        <label for="price">Price</label>
-        <InputNumber id="price" class="form-control" @bind-Value="item.Price" />
-    </div>
-    <div class="form-group">
-        <label for="sellable">Sellable</label>
-        <InputCheckbox id="sellable" class="form-control" @bind-Value="item.Sellable" />
-    </div>
-    <div class="form-group">
-        <label for="tradeable">Tradeable</label>
-        <InputCheckbox id="tradeable" class="form-control" @bind-Value="item.Tradeable" />
-    </div>
-    <div class="form-group">
-        <label for="dropable">Dropable</label>
-        <InputCheckbox id="dropable" class="form-control" @bind-Value="item.Dropable" />
-    </div>
-    <div class="form-group">
-        <label for="destroyable">Destroyable</label>
-        <InputCheckbox id="destroyable" class="form-control" @bind-Value="item.Destroyable" />
-    </div>
-
-    @if (item is Armor armor)
+    @if (loading)
     {
-        <div class="form-group">
-            <label for="armorType">Armor Type</label>
-            <InputText id="armorType" class="form-control" @bind-Value="armor.ArmorType" />
-        </div>
-        <div class="form-group">
-            <label for="bodyPart">Body Part</label>
-            <InputText id="bodyPart" class="form-control" @bind-Value="armor.BodyPart" />
-        </div>
-        <div class="form-group">
-            <label for="grade">Grade</label>
-            <InputText id="grade" class="form-control" @bind-Value="armor.Grade" />
-        </div>
-        <div class="form-group">
-            <label for="crystallizable">Crystallizable</label>
-            <InputCheckbox id="crystallizable" class="form-control" @bind-Value="armor.Crystallizable" />
-        </div>
-        <!-- Add fields for stats if needed -->
-    }
-    else if (item is Weapon weapon)
-    {
-        <div class="form-group">
-            <label for="weaponType">Weapon Type</label>
-            <InputText id="weaponType" class="form-control" @bind-Value="weapon.WeaponType" />
-        </div>
-        <div class="form-group">
-            <label for="bodyPart">Body Part</label>
-            <InputText id="bodyPart" class="form-control" @bind-Value="weapon.BodyPart" />
-        </div>
-        <div class="form-group">
-            <label for="grade">Grade</label>
-            <InputText id="grade" class="form-control" @bind-Value="weapon.Grade" />
-        </div>
-        <div class="form-group">
-            <label for="crystallizable">Crystallizable</label>
-            <InputCheckbox id="crystallizable" class="form-control" @bind-Value="weapon.Crystallizable" />
-        </div>
-        <!-- Add fields for stats if needed -->
-    }
-    else if (item is Accessory accessory)
-    {
-        <div class="form-group">
-            <label for="bodyPart">Body Part</label>
-            <InputText id="bodyPart" class="form-control" @bind-Value="accessory.BodyPart" />
-        </div>
-        <div class="form-group">
-            <label for="grade">Grade</label>
-            <InputText id="grade" class="form-control" @bind-Value="accessory.Grade" />
-        </div>
-        <div class="form-group">
-            <label for="crystallizable">Crystallizable</label>
-            <InputCheckbox id="crystallizable" class="form-control" @bind-Value="accessory.Crystallizable" />
+        <div class="d-flex justify-content-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
         </div>
     }
-    else if (item is Jewelry jewelry)
+    else if (item != null)
     {
-        <div class="form-group">
-            <label for="bodyPart">Body Part</label>
-            <InputText id="bodyPart" class="form-control" @bind-Value="jewelry.BodyPart" />
-        </div>
-        <div class="form-group">
-            <label for="grade">Grade</label>
-            <InputText id="grade" class="form-control" @bind-Value="jewelry.Grade" />
-        </div>
-        <div class="form-group">
-            <label for="crystallizable">Crystallizable</label>
-            <InputCheckbox id="crystallizable" class="form-control" @bind-Value="jewelry.Crystallizable" />
-        </div>
-        <!-- Add fields for stats if needed -->
-    }
-    else if (item is Etc etc)
-    {
-        <div class="form-group">
-            <label for="itemType">Item Type</label>
-            <InputText id="itemType" class="form-control" @bind-Value="etc.ItemType" />
-        </div>
-        <div class="form-group">
-            <label for="stackable">Stackable</label>
-            <InputCheckbox id="stackable" class="form-control" @bind-Value="etc.Stackable" />
-        </div>
-    }
+        <EditForm Model="@item" OnValidSubmit="@HandleValidSubmit">
+            <DataAnnotationsValidator />
 
-    <button type="submit" class="btn btn-primary">@(IsEditing ? "Save" : "Create")</button>
-</EditForm>
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Basic Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6 mb-3">
+                            <label for="itemType" class="form-label">Item Type</label>
+                            @if (!IsEditing)
+                            {
+                                <select id="itemType" class="form-select" value="@item.ItemType" @onchange="HandleItemTypeChange">
+                                    <option value="Armor">Armor</option>
+                                    <option value="Weapon">Weapon</option>
+                                    <option value="Accessory">Accessory</option>
+                                    <option value="Jewelry">Jewelry</option>
+                                    <option value="Etc">Etc</option>
+                                </select>
+                            }
+                            else
+                            {
+                                <input type="text" class="form-control" value="@item.ItemType" disabled />
+                            }
+                            <small class="text-muted">Type cannot be changed after creation</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="itemName" class="form-label">Name*</label>
+                            <InputText id="itemName" class="form-control" @bind-Value="item.Name" />
+                            <ValidationMessage For="@(() => item.Name)" />
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6 mb-3">
+                            <label for="itemIcon" class="form-label">Icon</label>
+                            <InputText id="itemIcon" class="form-control" @bind-Value="item.Icon" />
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="itemWeight" class="form-label">Weight</label>
+                            <InputNumber id="itemWeight" class="form-control" @bind-Value="item.Weight" />
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <label for="itemPrice" class="form-label">Price</label>
+                            <InputNumber id="itemPrice" class="form-control" @bind-Value="item.Price" />
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label class="form-label">Item Properties</label>
+                            <div class="d-flex flex-wrap gap-3">
+                                <div class="form-check form-switch">
+                                    <InputCheckbox id="itemSellable" class="form-check-input" @bind-Value="item.Sellable" />
+                                    <label class="form-check-label" for="itemSellable">Sellable</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <InputCheckbox id="itemTradeable" class="form-check-input" @bind-Value="item.Tradeable" />
+                                    <label class="form-check-label" for="itemTradeable">Tradeable</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <InputCheckbox id="itemDropable" class="form-check-input" @bind-Value="item.Dropable" />
+                                    <label class="form-check-label" for="itemDropable">Dropable</label>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <InputCheckbox id="itemDestroyable" class="form-check-input" @bind-Value="item.Destroyable" />
+                                    <label class="form-check-label" for="itemDestroyable">Destroyable</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Common Properties for Equipment Items -->
+            @if (item.ItemType != "Etc")
+            {
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="card-title mb-0">Equipment Properties</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6 mb-3">
+                                <label for="bodyPart" class="form-label">Body Part</label>
+                                <InputSelect id="bodyPart" class="form-select" @bind-Value="item.BodyPart">
+                                    <option value="">Select part...</option>
+                                    @if (item.ItemType == "Armor")
+                                    {
+                                        <option value="CHEST">Chest</option>
+                                        <option value="LEGS">Legs</option>
+                                        <option value="HEAD">Head</option>
+                                        <option value="GLOVES">Gloves</option>
+                                        <option value="FEET">Feet</option>
+                                        <option value="SHIELD">Shield</option>
+                                    }
+                                    else if (item.ItemType == "Weapon")
+                                    {
+                                        <option value="RHAND">Right Hand</option>
+                                        <option value="LHAND">Left Hand</option>
+                                        <option value="TWOHAND">Two Hand</option>
+                                    }
+                                    else if (item.ItemType == "Accessory")
+                                    {
+                                        <option value="FACE">Face</option>
+                                        <option value="HAIR">Hair</option>
+                                        <option value="HAIR2">Hair 2</option>
+                                        <option value="RBRACELET">Right Bracelet</option>
+                                        <option value="LBRACELET">Left Bracelet</option>
+                                    }
+                                    else if (item.ItemType == "Jewelry")
+                                    {
+                                        <option value="NECK">Neck</option>
+                                        <option value="REAR">Right Ear</option>
+                                        <option value="LEAR">Left Ear</option>
+                                        <option value="RFINGER">Right Finger</option>
+                                        <option value="LFINGER">Left Finger</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="grade" class="form-label">Grade</label>
+                                <InputSelect id="grade" class="form-select" @bind-Value="item.Grade">
+                                    <option value="NONE">None</option>
+                                    <option value="D">D Grade</option>
+                                    <option value="C">C Grade</option>
+                                    <option value="B">B Grade</option>
+                                    <option value="A">A Grade</option>
+                                    <option value="S">S Grade</option>
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <div class="form-check form-switch mt-4">
+                                    <InputCheckbox id="crystallizable" class="form-check-input" @bind-Value="item.Crystallizable" />
+                                    <label class="form-check-label" for="crystallizable">Crystallizable</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Item Type Specific Properties -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">@item.ItemType Type-Specific Properties</h5>
+                </div>
+                <div class="card-body">
+                    @switch (item.ItemType)
+                    {
+                        case "Armor":
+                            <div class="row mb-3">
+                                <div class="col-md-6 mb-3">
+                                    <label for="armorType" class="form-label">Armor Type</label>
+                                    <InputSelect id="armorType" class="form-select" @bind-Value="item.ArmorType">
+                                        <option value="">Select type...</option>
+                                        <option value="LIGHT">Light</option>
+                                        <option value="HEAVY">Heavy</option>
+                                        <option value="MAGIC">Magic</option>
+                                        <option value="SIGIL">Sigil</option>
+                                        <option value="SHIELD">Shield</option>
+                                    </InputSelect>
+                                </div>
+                            </div>
+                            break;
+
+                        case "Weapon":
+                            <div class="row mb-3">
+                                <div class="col-md-6 mb-3">
+                                    <label for="weaponType" class="form-label">Weapon Type</label>
+                                    <InputSelect id="weaponType" class="form-select" @bind-Value="item.WeaponType">
+                                        <option value="">Select type...</option>
+                                        <option value="SWORD">Sword</option>
+                                        <option value="BLUNT">Blunt</option>
+                                        <option value="DAGGER">Dagger</option>
+                                        <option value="BOW">Bow</option>
+                                        <option value="POLE">Pole</option>
+                                        <option value="FIST">Fist</option>
+                                        <option value="DUAL">Dual Swords</option>
+                                        <option value="BIGSWORD">Big Sword</option>
+                                        <option value="ROD">Rod</option>
+                                    </InputSelect>
+                                </div>
+                            </div>
+                            break;
+
+                        case "Etc":
+                            <div class="row mb-3">
+                                <div class="col-md-6 mb-3">
+                                    <label for="etcItemType" class="form-label">Item Type</label>
+                                    <InputSelect id="etcItemType" class="form-select" @bind-Value="item.EtcItemType">
+                                        <option value="">Select type...</option>
+                                        <option value="MATERIAL">Material</option>
+                                        <option value="SCROLL">Scroll</option>
+                                        <option value="POTION">Potion</option>
+                                        <option value="QUEST">Quest Item</option>
+                                        <option value="OTHER">Other</option>
+                                        <option value="SHOT">Shot</option>
+                                    </InputSelect>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-check form-switch mt-4">
+                                        <InputCheckbox id="etcStackable" class="form-check-input" @bind-Value="item.Stackable" />
+                                        <label class="form-check-label" for="etcStackable">Stackable</label>
+                                    </div>
+                                </div>
+                            </div>
+                            break;
+                    }
+                </div>
+            </div>
+
+            <!-- Item Stats Section -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Item Stats</h5>
+                    <button type="button" class="btn btn-sm btn-primary" @onclick="AddNewStat">
+                        <i class="oi oi-plus"></i> Add Stat
+                    </button>
+                </div>
+                <div class="card-body">
+                    @if (!item.Stats.Any())
+                    {
+                        <p class="text-muted text-center py-3">No stats defined for this item</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Stat</th>
+                                        <th>Order</th>
+                                        <th>Value</th>
+                                        <th style="width: 80px;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (int i = 0; i < item.Stats.Count; i++)
+                                    {
+                                        var currentIndex = i;
+                                        var stat = item.Stats.ElementAt(i);
+                                        <tr>
+                                            <td>
+                                                <InputSelect class="form-select form-select-sm" @bind-Value="stat.StatType">
+                                                    <option value="add">Add</option>
+                                                    <option value="set">Set</option>
+                                                    <option value="sub">Sub</option>
+                                                    <option value="enchant">Enchant</option>
+                                                </InputSelect>
+                                            </td>
+                                            <td>
+                                                <InputSelect class="form-select form-select-sm" @bind-Value="stat.Stat">
+                                                    <option value="pDef">pDef</option>
+                                                    <option value="mDef">mDef</option>
+                                                    <option value="pAtk">pAtk</option>
+                                                    <option value="mAtk">mAtk</option>
+                                                    <option value="rEvas">rEvas</option>
+                                                    <option value="accCombat">accCombat</option>
+                                                    <option value="sDef">sDef</option>
+                                                    <option value="rShld">rShld</option>
+                                                    <option value="maxHp">maxHp</option>
+                                                    <option value="maxMp">maxMp</option>
+                                                </InputSelect>
+                                            </td>
+                                            <td>
+                                                <InputText class="form-control form-control-sm" @bind-Value="stat.Order" />
+                                            </td>
+                                            <td>
+                                                <InputText class="form-control form-control-sm" @bind-Value="stat.Value" />
+                                            </td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-danger"
+                                                        @onclick="() => RemoveStat(currentIndex)">
+                                                    <i class="oi oi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Item Skills Section -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Item Skills</h5>
+                    <button type="button" class="btn btn-sm btn-primary" @onclick="AddNewSkill">
+                        <i class="oi oi-plus"></i> Add Skill
+                    </button>
+                </div>
+                <div class="card-body">
+                    @if (!item.Skills.Any())
+                    {
+                        <p class="text-muted text-center py-3">No skills defined for this item</p>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Skill ID</th>
+                                        <th>Level</th>
+                                        <th style="width: 80px;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (int i = 0; i < item.Skills.Count; i++)
+                                    {
+                                        var currentIndex = i;
+                                        var skill = item.Skills.ElementAt(i);
+                                        <tr>
+                                            <td>
+                                                <InputNumber class="form-control form-control-sm" @bind-Value="skill.SkillId" />
+                                            </td>
+                                            <td>
+                                                <InputNumber class="form-control form-control-sm" @bind-Value="skill.SkillLevel" />
+                                            </td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-danger"
+                                                        @onclick="() => RemoveSkill(currentIndex)">
+                                                    <i class="oi oi-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between mb-4">
+                <a href="/items" class="btn btn-outline-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="oi @(IsEditing ? "oi-check" : "oi-plus")"></i>
+                    @(IsEditing ? "Save Changes" : "Create Item")
+                </button>
+            </div>
+            <ValidationSummary />
+        </EditForm>
+    }
+</div>
 
 @code {
     [Parameter] public int? Id { get; set; }
-    private Item item;
+    private ItemDto item;
     private bool IsEditing => Id.HasValue;
-    private string SelectedItemType { get; set; }
+    private bool loading = true;
+    private string errorMessage;
 
     protected override async Task OnInitializedAsync()
     {
-        if (IsEditing)
+        try
         {
-            item = await Http.GetFromJsonAsync<Item>($"api/item/{Id.Value}");
-            SelectedItemType = item.GetType().Name;
+            if (IsEditing)
+            {
+                item = await ItemService.GetItemAsync(Id.Value);
+
+                if (item == null)
+                {
+                    errorMessage = $"Item with ID {Id.Value} not found";
+                }
+            }
+            else
+            {
+                // Crear un nuevo DTO con tipo por defecto "Armor"
+                InstantiateNewItem("Armor");
+            }
         }
-        else
+        catch (Exception ex)
         {
-            SelectedItemType = "Armor"; // Default type, you can change it
-            InstantiateNewItem(SelectedItemType);
+            errorMessage = $"Error loading item: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
         }
     }
 
     private void HandleItemTypeChange(ChangeEventArgs e)
     {
-        SelectedItemType = e.Value.ToString();
-        InstantiateNewItem(SelectedItemType);
+        string newType = e.Value.ToString();
+
+        if (newType != item.ItemType)
+        {
+            // Guardar valores comunes antes de cambiar el tipo
+            var tempItem = item;
+
+            // Crear nueva instancia del tipo seleccionado
+            InstantiateNewItem(newType);
+
+            // Restaurar valores comunes
+            item.Id = tempItem.Id;
+            item.Name = tempItem.Name;
+            item.Icon = tempItem.Icon;
+            item.Weight = tempItem.Weight;
+            item.Price = tempItem.Price;
+            item.Sellable = tempItem.Sellable;
+            item.Tradeable = tempItem.Tradeable;
+            item.Dropable = tempItem.Dropable;
+            item.Destroyable = tempItem.Destroyable;
+            item.BodyPart = tempItem.BodyPart;
+            item.Grade = tempItem.Grade;
+            item.Crystallizable = tempItem.Crystallizable;
+
+            // Restaurar stats y skills
+            foreach (var stat in tempItem.Stats)
+            {
+                item.Stats.Add(new ItemStatDto
+                    {
+                        Id = stat.Id,
+                        StatType = stat.StatType,
+                        Stat = stat.Stat,
+                        Order = stat.Order,
+                        Value = stat.Value
+                    });
+            }
+
+            foreach (var skill in tempItem.Skills)
+            {
+                item.Skills.Add(new ItemSkillDto
+                    {
+                        Id = skill.Id,
+                        SkillId = skill.SkillId,
+                        SkillLevel = skill.SkillLevel
+                    });
+            }
+
+            // Forzar actualización de la UI
+            StateHasChanged();
+        }
     }
 
     private void InstantiateNewItem(string itemType)
     {
-        switch (itemType)
+        item = new ItemDto
+            {
+                ItemType = itemType,
+                Stats = new List<ItemStatDto>(),
+                Skills = new List<ItemSkillDto>(),
+                Destroyable = true,  // por defecto
+                Grade = "NONE",      // por defecto
+                Sellable = true,     // por defecto
+                Tradeable = true,    // por defecto
+                Dropable = true      // por defecto
+            };
+    }
+
+    private void AddNewStat()
+    {
+        if (item.Stats == null)
         {
-            case "Armor":
-                item = new Armor();
-                break;
-            case "Weapon":
-                item = new Weapon();
-                break;
-            case "Accessory":
-                item = new Accessory();
-                break;
-            case "Jewelry":
-                item = new Jewelry();
-                break;
-            case "Etc":
-                item = new Etc();
-                break;
+            item.Stats = new List<ItemStatDto>();
+        }
+
+        item.Stats.Add(new ItemStatDto
+            {
+                StatType = "add",
+                Stat = "pDef",
+                Order = "0x10",
+                Value = "0"
+            });
+    }
+
+    private void RemoveStat(int index)
+    {
+        if (item.Stats != null && index >= 0 && index < item.Stats.Count)
+        {
+            item.Stats.Remove(item.Stats.ElementAt(index));
+        }
+    }
+
+    private void AddNewSkill()
+    {
+        if (item.Skills == null)
+        {
+            item.Skills = new List<ItemSkillDto>();
+        }
+
+        item.Skills.Add(new ItemSkillDto
+            {
+                SkillId = 0,
+                SkillLevel = 1
+            });
+    }
+
+    private void RemoveSkill(int index)
+    {
+        if (item.Skills != null && index >= 0 && index < item.Skills.Count)
+        {
+            item.Skills.Remove(item.Skills.ElementAt(index));
         }
     }
 
     private async Task HandleValidSubmit()
     {
-        if (IsEditing)
+        try
         {
-            await Http.PutAsJsonAsync($"api/item/{Id.Value}", item);
+            if (IsEditing)
+            {
+                await ItemService.UpdateItemAsync(Id.Value, item);
+            }
+            else
+            {
+                await ItemService.CreateItemAsync(item);
+            }
+            Navigation.NavigateTo("/items");
         }
-        else
+        catch (Exception ex)
         {
-            await Http.PostAsJsonAsync("api/item", item);
+            errorMessage = $"Error saving item: {ex.Message}";
         }
-
-        Navigation.NavigateTo("/items");
     }
 }

@@ -1,10 +1,10 @@
 ﻿using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
-using GameDbManager.API.Models.Items;
 using System.Collections.Generic;
 using System;
 using System.Text.Json;
+using GameDbManager.Client.Models.Items;
 
 namespace GameDbManager.Client.Services.Items
 {
@@ -18,55 +18,90 @@ namespace GameDbManager.Client.Services.Items
             _httpClient = httpClient;
             _options = new JsonSerializerOptions
             {
-                Converters =
-                {
-                    new ItemConverter()
-                }
+                PropertyNameCaseInsensitive = true,
+                WriteIndented = true
+                // Ya no necesitamos ReferenceHandler.Preserve
             };
         }
 
-        public async Task<string> ImportItemsFromXml(string xmlContent)
+        public async Task<string> ImportItemsFromXml(string xmlContent, bool overwriteExisting = false)
         {
             try
             {
-                var response = await _httpClient.PostAsJsonAsync("api/item/import", xmlContent);
+                var request = new ImportXmlRequest
+                {
+                    XmlContent = xmlContent,
+                    OverwriteExisting = overwriteExisting
+                };
+
+                var response = await _httpClient.PostAsJsonAsync("api/item/import", request);
                 response.EnsureSuccessStatusCode();
                 var message = await response.Content.ReadAsStringAsync();
                 return message;
             }
             catch (Exception ex)
             {
-                // Log or handle the error appropriately
                 Console.WriteLine($"Error importing items: {ex.Message}");
                 return $"Error importing items: {ex.Message}";
             }
         }
 
-        public async Task<List<Item>> GetItemsAsync()
+        public async Task<bool> ValidateXml(string xmlContent)
         {
             try
             {
-                var responseStream = await _httpClient.GetStreamAsync("api/item");
-                var items = await JsonSerializer.DeserializeAsync<List<Item>>(responseStream, _options);
-                return items;
-            }
-            catch (NotSupportedException nsex)
-            {
-                // Log o handle the error appropriately
-                Console.WriteLine($"NotSupportedException fetching items: {nsex.Message}, StackTrace: {nsex.StackTrace}");
-                return new List<Item>();
-            }
-            catch (JsonException jex)
-            {
-                // Log or handle the error appropriately
-                Console.WriteLine($"JsonException fetching items: {jex.Message}, Path: {jex.Path}, LineNumber: {jex.LineNumber}, BytePositionInLine: {jex.BytePositionInLine}");
-                return new List<Item>();
+                var request = new ValidateXmlRequest { XmlContent = xmlContent };
+                var response = await _httpClient.PostAsJsonAsync("api/item/validate", request);
+                return response.IsSuccessStatusCode;
             }
             catch (Exception ex)
             {
-                // Log or handle the error appropriately
-                Console.WriteLine($"Exception fetching items: {ex.Message}, StackTrace: {ex.StackTrace}");
-                return new List<Item>();
+                Console.WriteLine($"Error validating XML: {ex.Message}");
+                return false;
+            }
+        }
+
+        public async Task<ItemDto> GetItemAsync(int id)
+        {
+            try
+            {
+                return await _httpClient.GetFromJsonAsync<ItemDto>($"api/item/{id}", _options);
+            }
+            catch (HttpRequestException ex)
+            {
+                Console.WriteLine($"HTTP error getting item with ID {id}: {ex.Message}");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting item with ID {id}: {ex.Message}");
+                throw;
+            }
+        }
+
+        public async Task<List<ItemDto>> GetItemsAsync()
+        {
+            try
+            {
+                // Podemos simplificarlo ahora que el servidor devuelve JSON directo
+                return await _httpClient.GetFromJsonAsync<List<ItemDto>>("api/item", _options) ??
+                       new List<ItemDto>();
+            }
+            catch (Exception ex)
+            {
+                // Si por algún motivo esto falla, registramos el error y devolvemos lista vacía
+                Console.WriteLine($"Exception fetching items: {ex.Message}");
+
+                // Para depuración, podemos intentar ver la respuesta real
+                try
+                {
+                    var response = await _httpClient.GetAsync("api/item");
+                    var content = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"Raw response: {content.Substring(0, Math.Min(content.Length, 200))}...");
+                }
+                catch { }
+
+                return new List<ItemDto>();
             }
         }
 
@@ -79,9 +114,61 @@ namespace GameDbManager.Client.Services.Items
             }
             catch (Exception ex)
             {
-                // Log or handle the error appropriately
                 Console.WriteLine($"Error deleting item with ID {id}: {ex.Message}");
+                throw;
             }
+        }
+
+        public async Task<ItemDto> CreateItemAsync(ItemDto item)
+        {
+            try
+            {
+                // Asegurar que las colecciones estén inicializadas
+                if (item.Stats == null) item.Stats = new List<ItemStatDto>();
+                if (item.Skills == null) item.Skills = new List<ItemSkillDto>();
+
+                var response = await _httpClient.PostAsJsonAsync("api/item", item, _options);
+                response.EnsureSuccessStatusCode();
+
+                return await response.Content.ReadFromJsonAsync<ItemDto>(_options);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error creating item: {ex.Message}");
+                throw;
+            }
+        }
+
+        public async Task<ItemDto> UpdateItemAsync(int id, ItemDto item)
+        {
+            try
+            {
+                // Asegurar que las colecciones estén inicializadas
+                if (item.Stats == null) item.Stats = new List<ItemStatDto>();
+                if (item.Skills == null) item.Skills = new List<ItemSkillDto>();
+
+                var response = await _httpClient.PutAsJsonAsync($"api/item/{id}", item, _options);
+                response.EnsureSuccessStatusCode();
+
+                return await response.Content.ReadFromJsonAsync<ItemDto>(_options);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating item: {ex.Message}");
+                throw;
+            }
+        }
+
+        // Clases para peticiones
+        private class ImportXmlRequest
+        {
+            public string XmlContent { get; set; }
+            public bool OverwriteExisting { get; set; }
+        }
+
+        private class ValidateXmlRequest
+        {
+            public string XmlContent { get; set; }
         }
     }
 }

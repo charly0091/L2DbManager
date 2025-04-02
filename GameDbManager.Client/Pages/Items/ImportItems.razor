@@ -2,39 +2,525 @@
 @using GameDbManager.Client.Services.Items
 @inject ItemService ItemService
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
-<PageTitle>Import Items</PageTitle>
+<PageTitle>Import Items - Game DB Manager</PageTitle>
 
-<h3>Import Items</h3>
-
-<InputFile OnChange="HandleFileSelected" />
-<button @onclick="ImportItemsFromXml" class="btn btn-primary">Import</button>
-
-@if (!string.IsNullOrEmpty(ImportMessage))
-{
-    <div class="alert alert-info">
-        @ImportMessage
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="oi oi-data-transfer-upload"></i> Import Items</h2>
+        <div>
+            <a href="/items" class="btn btn-outline-secondary">
+                <i class="oi oi-chevron-left"></i> Back to Items
+            </a>
+        </div>
     </div>
-}
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Import XML Data</h5>
+                </div>
+                <div class="card-body">
+                    @if (!isImporting)
+                    {
+                        <div class="mb-4">
+                            <div class="alert alert-info">
+                                <div class="d-flex">
+                                    <div class="me-3">
+                                        <i class="oi oi-info fs-4"></i>
+                                    </div>
+                                    <div>
+                                        <h5>Import Instructions</h5>
+                                        <p>Upload XML files containing item definitions. The XML should follow the standard item schema format.</p>
+                                        <p class="mb-0"><strong>Supported item types:</strong> Accessory, Armor, Weapon, Jewelry, Etc</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="file-upload-container @(isDragOver ? "drag-over" : "")">
+                                <InputFile OnChange="HandleFilesSelected" class="file-input" multiple
+                                           @ondragenter="() => isDragOver = true"
+                                           @ondragleave="() => isDragOver = false"
+                                           @ondragend="() => isDragOver = false" />
+                                <div class="file-upload-content text-center py-5">
+                                    <i class="oi oi-cloud-upload display-4 mb-3"></i>
+                                    <h4>Drop XML files here</h4>
+                                    <p class="text-muted">or click to browse your files</p>
+
+                                    @if (fileContents.Any())
+                                    {
+                                        <div class="selected-files mt-3">
+                                            <h6>Selected Files:</h6>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                @foreach (var file in fileContents)
+                                                {
+                                                    <span class="badge bg-success d-inline-flex align-items-center">
+                                                        <i class="oi oi-file me-1"></i>
+                                                        @file.FileName (@(Math.Round((double)file.FileSize / 1024, 2)) KB)
+                                                        <button type="button" class="btn btn-sm text-white ms-2"
+                                                                @onclick="() => RemoveFile(file.FileName)" style="padding: 0 4px;">
+                                                            <i class="oi oi-x"></i>
+                                                        </button>
+                                                    </span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-check mb-4">
+                            <input class="form-check-input" type="checkbox" id="overwriteExisting" @bind="overwriteExisting">
+                            <label class="form-check-label" for="overwriteExisting">
+                                Overwrite existing items with same ID
+                            </label>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button @onclick="ImportItemsFromXml" class="btn btn-primary" disabled="@(!fileContents.Any())">
+                                <i class="oi oi-data-transfer-upload me-1"></i> Import Items
+                            </button>
+                            <button @onclick="ValidateXml" class="btn btn-outline-secondary" disabled="@(!fileContents.Any())">
+                                <i class="oi oi-check me-1"></i> Validate Only
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary mb-3" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <h4>@progressMessage</h4>
+                            <p class="text-muted mb-4">This may take a moment depending on the file size.</p>
+
+                            @if (currentFileIndex > 0)
+                            {
+                                <div class="progress mb-3" style="height: 20px;">
+                                    <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar"
+                                         style="width: @($"{progressPercentage}%")">
+                                        @progressPercentage%
+                                    </div>
+                                </div>
+                                <p class="small text-muted">
+                                    Processing file @currentFileIndex of @fileContents.Count
+                                </p>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            @if (importResults.Any())
+            {
+                <div class="card mb-4 shadow-sm">
+                    <div class="card-header bg-light">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                <i class="oi oi-list"></i>
+                                Import Results
+                            </h5>
+                            <div>
+                                <span class="badge bg-success me-1">@importResults.Count(r => r.Success) Success</span>
+                                <span class="badge bg-danger">@importResults.Count(r => !r.Success) Failed</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="custom-accordion">
+                            @for (var i = 0; i < importResults.Count; i++)
+                            {
+                                var result = importResults[i];
+                                var index = i;
+
+                                <div class="custom-accordion-item @(result.Success ? "border-success" : "border-danger")">
+                                    <div class="custom-accordion-header" @onclick="() => ToggleAccordion(index)">
+                                        <div class="d-flex justify-content-between align-items-center p-3">
+                                            <div class="d-flex align-items-center">
+                                                <i class="oi @(expandedItems.Contains(index) ? "oi-minus" : "oi-plus") me-2"></i>
+                                                <span>@result.FileName</span>
+                                            </div>
+                                            <span class="badge bg-@(result.Success ? "success" : "danger")">
+                                                @(result.Success ? "Success" : "Failed")
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    @if (expandedItems.Contains(index))
+                                    {
+                                        <div class="custom-accordion-body p-3 border-top">
+                                            <div class="@(result.Success ? "text-success" : "text-danger")">
+                                                <h5>Summary</h5>
+                                                <p>@result.Summary</p>
+                                            </div>
+
+                                            @if (!string.IsNullOrEmpty(result.Details))
+                                            {
+                                                <div class="mt-3">
+                                                    <h6>Details:</h6>
+                                                    <pre class="bg-light p-3 rounded" style="max-height: 300px; overflow-y: auto;">@result.Details</pre>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                    <div class="card-footer bg-light">
+                        <div class="d-flex justify-content-between">
+                            <span>
+                                <strong>Total:</strong> @importResults.Count files processed
+                            </span>
+                            <a href="/items" class="btn btn-primary btn-sm">
+                                <i class="oi oi-list me-1"></i> View Items
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Format Example</h5>
+                </div>
+                <div class="card-body">
+                    <div class="code-block">
+                        <pre>
+&lt;list&gt;
+  &lt;armor id="20" name="Buckler" armorType="Shield"&gt;
+    &lt;set icon="icon.shield_buckler_i00"/&gt;
+    &lt;set bodyPart="LHAND" grade="NONE"/&gt;
+    &lt;set crystallizable="false" /&gt;
+    &lt;set weight="1410" price="2780"/&gt;
+    &lt;set sellable="true" tradeable="true" /&gt;
+    &lt;set dropable="true" destroyable="true"/&gt;
+
+    &lt;stats&gt;
+      &lt;sub stat="rEvas" order="0x10" val="8"/&gt;
+      &lt;set stat="sDef" order="0x8" val="67"/&gt;
+    &lt;/stats&gt;
+  &lt;/armor&gt;
+
+  &lt;etc id="5010" name="Echo Crystal" itemType="Other"&gt;
+    &lt;set icon="icon.etc_echo_crystal_i02"/&gt;
+    &lt;set weight="10" /&gt;
+    &lt;set stackable="true"/&gt;
+    &lt;skills&gt;
+      &lt;skill id="2066" level="1"/&gt;
+    &lt;/skills&gt;
+  &lt;/etc&gt;
+&lt;/list&gt;
+                        </pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .file-upload-container {
+        border: 2px dashed #ced4da;
+        border-radius: 6px;
+        position: relative;
+        transition: all 0.2s ease;
+    }
+
+        .file-upload-container:hover {
+            border-color: #adb5bd;
+        }
+
+    .drag-over {
+        border-color: #0d6efd;
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+
+    .file-input {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+        z-index: 2;
+    }
+
+    .file-upload-content {
+        pointer-events: none;
+    }
+
+    .selected-files button {
+        border: none;
+        background: transparent;
+    }
+
+    .code-block {
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        padding: 1rem;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+        .code-block pre {
+            margin-bottom: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+    /* Custom Accordion Styles */
+    .custom-accordion-item {
+        border: 1px solid #dee2e6;
+        margin-bottom: -1px;
+    }
+
+        .custom-accordion-item:first-child {
+            border-top-left-radius: 0.25rem;
+            border-top-right-radius: 0.25rem;
+        }
+
+        .custom-accordion-item:last-child {
+            border-bottom-left-radius: 0.25rem;
+            border-bottom-right-radius: 0.25rem;
+            margin-bottom: 0;
+        }
+
+    .custom-accordion-header {
+        cursor: pointer;
+        background-color: #f8f9fa;
+        transition: background-color 0.2s ease;
+    }
+
+        .custom-accordion-header:hover {
+            background-color: #e9ecef;
+        }
+
+    .custom-accordion-body {
+        background-color: #fff;
+    }
+
+    .border-success {
+        border-left: 4px solid #198754 !important;
+    }
+
+    .border-danger {
+        border-left: 4px solid #dc3545 !important;
+    }
+</style>
 
 @code {
-    private IBrowserFile selectedFile;
-    private string ImportMessage;
+    private List<FileContent> fileContents = new();
+    private List<ImportResult> importResults = new();
+    private HashSet<int> expandedItems = new HashSet<int>(); // Para controlar qué items están expandidos
+    private bool isImporting;
+    private bool isDragOver;
+    private bool overwriteExisting;
+    private int currentFileIndex = 0;
+    private int progressPercentage = 0;
+    private string progressMessage = "Importing items...";
+    private const int MaxFileSize = 10 * 1024 * 1024; // 10MB
 
-    private void HandleFileSelected(InputFileChangeEventArgs e)
+    private class FileContent
     {
-        selectedFile = e.File;
+        public string FileName { get; set; }
+        public long FileSize { get; set; }
+        public string XmlContent { get; set; }
+    }
+
+    private class ImportResult
+    {
+        public string FileName { get; set; }
+        public bool Success { get; set; }
+        public string Summary { get; set; }
+        public string Details { get; set; }
+    }
+
+    private async Task HandleFilesSelected(InputFileChangeEventArgs e)
+    {
+        fileContents.Clear();
+        importResults.Clear();
+
+        try
+        {
+            foreach (var file in e.GetMultipleFiles())
+            {
+                if (file.Size <= MaxFileSize)
+                {
+                    try
+                    {
+                        // Cargar el contenido inmediatamente
+                        using var stream = new MemoryStream();
+                        await file.OpenReadStream(MaxFileSize).CopyToAsync(stream);
+                        stream.Position = 0;
+                        using var reader = new StreamReader(stream);
+                        var content = await reader.ReadToEndAsync();
+
+                        fileContents.Add(new FileContent
+                            {
+                                FileName = file.Name,
+                                FileSize = file.Size,
+                                XmlContent = content
+                            });
+                    }
+                    catch (Exception ex)
+                    {
+                        await JSRuntime.InvokeVoidAsync("console.error", $"Error loading file {file.Name}: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    // Mensaje para archivos muy grandes
+                    await JSRuntime.InvokeVoidAsync("alert", $"File {file.Name} exceeds the maximum size limit (10MB).");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("console.error", $"Error in file selection: {ex.Message}");
+        }
+    }
+
+    private void RemoveFile(string fileName)
+    {
+        var file = fileContents.FirstOrDefault(f => f.FileName == fileName);
+        if (file != null)
+        {
+            fileContents.Remove(file);
+        }
+    }
+
+    private void ToggleAccordion(int index)
+    {
+        if (expandedItems.Contains(index))
+            expandedItems.Remove(index);
+        else
+            expandedItems.Add(index);
     }
 
     private async Task ImportItemsFromXml()
     {
-        if (selectedFile != null)
-        {
-            var buffer = new byte[selectedFile.Size];
-            await selectedFile.OpenReadStream().ReadAsync(buffer);
-            var xmlContent = System.Text.Encoding.UTF8.GetString(buffer);
+        if (!fileContents.Any())
+            return;
 
-            ImportMessage = await ItemService.ImportItemsFromXml(xmlContent);
+        isImporting = true;
+        importResults.Clear();
+        expandedItems.Clear();
+        currentFileIndex = 0;
+
+        try
+        {
+            foreach (var fileData in fileContents)
+            {
+                currentFileIndex++;
+                progressMessage = $"Processing {fileData.FileName}...";
+                progressPercentage = (currentFileIndex * 100) / fileContents.Count;
+                StateHasChanged();
+
+                try
+                {
+                    var response = await ItemService.ImportItemsFromXml(fileData.XmlContent, overwriteExisting);
+
+                    // Lógica mejorada para determinar éxito
+                    bool isSuccess = response.Contains("Successfully imported to database:") &&
+                                    !response.Contains("Successfully imported to database: 0 items") &&
+                                    !response.Contains("Failed to import:") &&
+                                    !response.Contains("Critical error") &&
+                                    !response.Contains("Failed to parse");
+
+                    importResults.Add(new ImportResult
+                        {
+                            FileName = fileData.FileName,
+                            Success = isSuccess,
+                            Summary = isSuccess ? "Import completed successfully" : "Import failed",
+                            Details = response
+                        });
+                }
+                catch (Exception ex)
+                {
+                    importResults.Add(new ImportResult
+                        {
+                            FileName = fileData.FileName,
+                            Success = false,
+                            Summary = "Import failed with exception",
+                            Details = ex.Message
+                        });
+                }
+
+                StateHasChanged();
+            }
+
+            if (importResults.Any())
+            {
+                expandedItems.Add(0);
+            }
+        }
+        finally
+        {
+            isImporting = false;
+            progressMessage = "Import complete";
+        }
+    }
+
+    private async Task ValidateXml()
+    {
+        if (!fileContents.Any())
+            return;
+
+        isImporting = true;
+        importResults.Clear();
+        expandedItems.Clear();
+        currentFileIndex = 0;
+        progressMessage = "Validating XML files...";
+
+        try
+        {
+            foreach (var fileData in fileContents)
+            {
+                currentFileIndex++;
+                progressPercentage = (currentFileIndex * 100) / fileContents.Count;
+                StateHasChanged();
+
+                try
+                {
+                    bool isValid = await ItemService.ValidateXml(fileData.XmlContent);
+
+                    importResults.Add(new ImportResult
+                        {
+                            FileName = fileData.FileName,
+                            Success = isValid,
+                            Summary = isValid ? "XML is valid" : "XML validation failed",
+                            Details = isValid ? "The XML structure is valid and ready for import." : "The XML contains errors or is not properly formatted."
+                        });
+                }
+                catch (Exception ex)
+                {
+                    importResults.Add(new ImportResult
+                        {
+                            FileName = fileData.FileName,
+                            Success = false,
+                            Summary = "Validation failed",
+                            Details = ex.Message
+                        });
+                }
+            }
+
+            // Expandir automáticamente el primer resultado
+            if (importResults.Any())
+            {
+                expandedItems.Add(0);
+            }
+        }
+        finally
+        {
+            isImporting = false;
+            progressMessage = "Validation complete";
         }
     }
 }
