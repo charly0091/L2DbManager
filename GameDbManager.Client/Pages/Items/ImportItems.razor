@@ -1,5 +1,6 @@
 ﻿@page "/items/import"
 @using GameDbManager.Client.Services.Items
+@using System.Text.RegularExpressions
 @inject ItemService ItemService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
@@ -427,12 +428,8 @@
                 {
                     var response = await ItemService.ImportItemsFromXml(fileData.XmlContent, overwriteExisting);
 
-                    // Lógica mejorada para determinar éxito
-                    bool isSuccess = response.Contains("Successfully imported to database:") &&
-                                    !response.Contains("Successfully imported to database: 0 items") &&
-                                    !response.Contains("Failed to import:") &&
-                                    !response.Contains("Critical error") &&
-                                    !response.Contains("Failed to parse");
+                    // Analizar correctamente la respuesta
+                    bool isSuccess = DetermineImportSuccess(response);
 
                     importResults.Add(new ImportResult
                         {
@@ -465,6 +462,39 @@
         {
             isImporting = false;
             progressMessage = "Import complete";
+        }
+    }
+
+    // Método para determinar el éxito de la importación basado en la respuesta
+    private bool DetermineImportSuccess(string response)
+    {
+        if (string.IsNullOrEmpty(response))
+            return false;
+
+        try
+        {
+            // Extraer valores usando expresiones regulares para mayor precisión
+            var foundMatch = Regex.Match(response, @"Found: (\d+) items");
+            var importedMatch = Regex.Match(response, @"Successfully imported to database: (\d+) items");
+            var failedImportMatch = Regex.Match(response, @"Failed to import: (\d+) items");
+
+            if (!foundMatch.Success || !importedMatch.Success || !failedImportMatch.Success)
+                return false;
+
+            int foundItems = int.Parse(foundMatch.Groups[1].Value);
+            int importedItems = int.Parse(importedMatch.Groups[1].Value);
+            int failedItems = int.Parse(failedImportMatch.Groups[1].Value);
+
+            // La importación es exitosa si:
+            // 1. Se encontró al menos un ítem
+            // 2. Se importaron todos los ítems encontrados
+            // 3. No hubo fallos en la importación
+            return foundItems > 0 && importedItems == foundItems && failedItems == 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error analyzing import response: {ex.Message}");
+            return false;
         }
     }
 
